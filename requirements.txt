@@ -2,7 +2,16 @@ wget
 nemo_toolkit[asr]==2.0.0rc0
 nltk
 faster-whisper>=1.1.0
+transformers>=4.39.0
 git+https://github.com/MahmoudAshraf97/demucs.git
 git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
 git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
-
+deepmultilingualpunctuation
+numpy<=2.2.0
+pyarrow<=15.0.2
+huggingface_hub<=0.25.2
+deepmultilingualpunctuation
+demucs
+datasets<=2.19.1
+soundfile
+librosa
