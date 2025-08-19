@@ -199,3 +199,31 @@ def main():
                                 logging.exception("Diarization failed: %s", p.name)
                                 handle_failure(p)
                             else:
+                                # mark done and cleanup source
+                                try:
+                                    marker.unlink(missing_ok=True)
+                                except Exception:
+                                    pass
+                                done.touch(exist_ok=True)
+                                handle_success(p)
+
+                        logging.info("Queued: %s", path.name)
+                        futures.add(pool.submit(_job))
+                        stable_hits[path] = 0
+
+                # Reap
+                done_set, futures = concurrent.futures.wait(
+                    futures, timeout=0, return_when=concurrent.futures.FIRST_COMPLETED
+                )
+                for _ in done_set:
+                    pass
+
+                time.sleep(args.interval)
+            except Exception:
+                logging.exception("Watcher loop error; continuing.")
+                time.sleep(args.interval)
+
+    logging.info("Stopped.")
+
+if __name__ == "__main__":
+    main()
