@@ -90,7 +90,7 @@ def main():
     # Engine options
     ap.add_argument("--device", type=str, default="cuda" if os.environ.get("CUDA_VISIBLE_DEVICES", "") != "" else "cpu",
                     help="cuda or cpu")
-    ap.add_argument("--whisper-model", type=str, default="medium.en",
+    ap.add_argument("--whisper-model", type=str, default="medium",
                     help="Whisper model name")
     ap.add_argument("--batch-size", type=int, default=8, help="Batched inference size")
     ap.add_argument("--suppress-numerals", action="store_true", default=False,
