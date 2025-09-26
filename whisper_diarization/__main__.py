@@ -1,6 +1,6 @@
-from .diarize import diarize_audio
+from diarize import diarize_audio
 import argparse
-from .helpers import whisper_langs
+from helpers import whisper_langs
 import torch
 
 

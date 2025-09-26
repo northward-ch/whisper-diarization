@@ -14,10 +14,11 @@ from ctc_forced_aligner import (
     postprocess_results,
     preprocess_text,
 )
+
 from deepmultilingualpunctuation import PunctuationModel
 from nemo.collections.asr.models.msdd_models import NeuralDiarizer
 
-from .helpers import (
+from helpers import (
     cleanup,
     create_config,
     find_numeral_symbol_tokens,
@@ -202,7 +203,7 @@ def diarize_audio(audio, out, stemming, suppress_numerals, model_name, batch_siz
     wsm = get_realigned_ws_mapping_with_punctuation(wsm)
     ssm = get_sentences_speaker_mapping(wsm, speaker_ts)
 
-    os.makedirs(out, exist_ok=True)
+    os.makedirs("/".join(out.split("/")[0:-1]), exist_ok=True)
     with open(f"{os.path.splitext(out)[0]}.txt", "w", encoding="utf-8-sig") as f:
         get_speaker_aware_transcript(ssm, f)
 
