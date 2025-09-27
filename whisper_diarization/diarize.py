@@ -33,13 +33,11 @@ from helpers import (
     write_srt,
 )
 
-def diarize_audio(audio, out, stemming, suppress_numerals, model_name, batch_size, language, device):
+def diarize_audio(audio, txt_out, srt_out, stemming, suppress_numerals, model_name, batch_size, language, device):
     mtypes = {"cpu": "int8", "cuda": "float16"}
 
     pid = os.getpid()
     temp_outputs_dir = f"temp_outputs_{pid}"
-
-    # Initialize parser
     
     language = process_language_arg(language, model_name)
 
@@ -203,11 +201,12 @@ def diarize_audio(audio, out, stemming, suppress_numerals, model_name, batch_siz
     wsm = get_realigned_ws_mapping_with_punctuation(wsm)
     ssm = get_sentences_speaker_mapping(wsm, speaker_ts)
 
-    os.makedirs("/".join(out.split("/")[0:-1]), exist_ok=True)
-    with open(f"{os.path.splitext(out)[0]}.txt", "w", encoding="utf-8-sig") as f:
+    os.makedirs("/".join(txt_out.split("/")[0:-1]), exist_ok=True)
+    with open(f"{os.path.splitext(txt_out)[0]}.txt", "w", encoding="utf-8-sig") as f:
         get_speaker_aware_transcript(ssm, f)
 
-    with open(f"{os.path.splitext(out)[0]}.srt", "w", encoding="utf-8-sig") as srt:
+    os.makedirs("/".join(srt_out.split("/")[0:-1]), exist_ok=True)
+    with open(f"{os.path.splitext(srt_out)[0]}.srt", "w", encoding="utf-8-sig") as srt:
         write_srt(ssm, srt)
 
     cleanup(temp_path)
