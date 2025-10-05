@@ -1,11 +1,13 @@
 import logging
 import os
 import re
-
 import faster_whisper
 import torch
 import torchaudio
-
+from pathlib import Path
+from deepmultilingualpunctuation import PunctuationModel
+from nemo.collections.asr.models.msdd_models import NeuralDiarizer
+import helpers
 from ctc_forced_aligner import (
     generate_emissions,
     get_alignments,
@@ -15,65 +17,13 @@ from ctc_forced_aligner import (
     preprocess_text,
 )
 
-from deepmultilingualpunctuation import PunctuationModel
-from nemo.collections.asr.models.msdd_models import NeuralDiarizer
-
-from helpers import (
-    cleanup,
-    create_config,
-    find_numeral_symbol_tokens,
-    get_realigned_ws_mapping_with_punctuation,
-    get_sentences_speaker_mapping,
-    get_speaker_aware_transcript,
-    get_words_speaker_mapping,
-    langs_to_iso,
-    process_language_arg,
-    punct_model_langs,
-    whisper_langs,
-    write_srt,
-)
-
-def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_name, batch_size, language, device):
-    mtypes = {"cpu": "int8", "cuda": "float16"}
-
-    pid = os.getpid()
-    temp_outputs_dir = f"temp_outputs_{pid}"
-    
-    language = process_language_arg(language, model_name)
-
-    if stemming:
-        # Isolate vocals from the rest of the audio
-
-        return_code = os.system(
-            f'python -m demucs.separate -n htdemucs --two-stems=vocals "{audio}" -o "{temp_outputs_dir}" --device "{device}"'
-        )
-
-        if return_code != 0:
-            logging.warning(
-                "Source splitting failed, using original audio file. "
-                "Use --no-stem argument to disable it."
-            )
-            vocal_target = audio
-        else:
-            vocal_target = os.path.join(
-                temp_outputs_dir,
-                "htdemucs",
-                os.path.splitext(os.path.basename(audio))[0],
-                "vocals.wav",
-            )
-    else:
-        vocal_target = audio
-
-
+def diarize(vocal_target: Path, txt_path: Path, srt_path: Path, tmp_dir: Path, suppress_numerals: bool, model_name: str, batch_size: int, language: str, device: str):    
     # Transcribe the audio file
-
-    whisper_model = faster_whisper.WhisperModel(
-        model_name, device=device, compute_type=mtypes[device]
-    )
+    whisper_model = faster_whisper.WhisperModel(model_name, device=device, compute_type=helpers.mtypes[device])
     whisper_pipeline = faster_whisper.BatchedInferencePipeline(whisper_model)
     audio_waveform = faster_whisper.decode_audio(vocal_target)
     suppress_tokens = (
-        find_numeral_symbol_tokens(whisper_model.hf_tokenizer)
+        helpers.find_numeral_symbol_tokens(whisper_model.hf_tokenizer)
         if suppress_numerals
         else [-1]
     )
@@ -119,7 +69,7 @@ def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_
     tokens_starred, text_starred = preprocess_text(
         full_transcript,
         romanize=True,
-        language=langs_to_iso[info.language],
+        language=helpers.langs_to_iso[info.language],
     )
 
     segments, scores, blank_token = get_alignments(
@@ -135,7 +85,7 @@ def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_
 
     # convert audio to mono for NeMo combatibility
     ROOT = os.getcwd()
-    temp_path = os.path.join(ROOT, temp_outputs_dir)
+    temp_path = os.path.join(ROOT, tmp_dir)
     os.makedirs(temp_path, exist_ok=True)
     torchaudio.save(
         os.path.join(temp_path, "mono_file.wav"),
@@ -144,17 +94,14 @@ def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_
         channels_first=True,
     )
 
-
     # Initialize NeMo MSDD diarization model
-    msdd_model = NeuralDiarizer(cfg=create_config(temp_path)).to(device)
+    msdd_model = NeuralDiarizer(cfg=helpers.create_config(temp_path)).to(device)
     msdd_model.diarize()
 
     del msdd_model
     torch.cuda.empty_cache()
 
     # Reading timestamps <> Speaker Labels mapping
-
-
     speaker_ts = []
     with open(os.path.join(temp_path, "pred_rttms", "mono_file.rttm"), "r") as f:
         lines = f.readlines()
@@ -164,9 +111,9 @@ def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_
             e = s + int(float(line_list[8]) * 1000)
             speaker_ts.append([s, e, int(line_list[11].split("_")[-1])])
 
-    wsm = get_words_speaker_mapping(word_timestamps, speaker_ts, "start")
+    wsm = helpers.get_words_speaker_mapping(word_timestamps, speaker_ts, "start")
 
-    if info.language in punct_model_langs:
+    if info.language in helpers.punct_model_langs:
         # restoring punctuation in the transcript to help realign the sentences
         punct_model = PunctuationModel(model="kredor/punctuate-all")
 
@@ -194,17 +141,12 @@ def diarize_audio(audio, txt_path, srt_path, stemming, suppress_numerals, model_
 
     else:
         logging.warning(
-            f"Punctuation restoration is not available for {info.language} language."
-            " Using the original punctuation."
+            f"Punctuation restoration is not available for {info.language} language. Using the original punctuation."
         )
 
-    wsm = get_realigned_ws_mapping_with_punctuation(wsm)
-    ssm = get_sentences_speaker_mapping(wsm, speaker_ts)
+    wsm = helpers.get_realigned_ws_mapping_with_punctuation(wsm)
+    ssm = helpers.get_sentences_speaker_mapping(wsm, speaker_ts)
 
-    with open(txt_path, "w", encoding="utf-8-sig") as f:
-        get_speaker_aware_transcript(ssm, f)
+    helpers.write_out(txt_path, srt_path, ssm)
 
-    with open(srt_path, "w", encoding="utf-8-sig") as srt:
-        write_srt(ssm, srt)
-
-    cleanup(temp_path)
+    helpers.cleanup(temp_path)

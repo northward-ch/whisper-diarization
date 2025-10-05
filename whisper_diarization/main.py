@@ -18,7 +18,7 @@ Usage example:
   python main.py \
     --watch-dir /workspace/video_watch_service/data/raw/rt_today/audio \
     --dest-dir  /workspace/whisper_diarization/data/processed/rt_today/audio \
-    --interval  10 \
+    --interval 10 \
     --extensions .wav,.mp3 \
     --device cuda \
     --whisper-model medium.en \

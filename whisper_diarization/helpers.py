@@ -1,11 +1,13 @@
 import json
 import os
 import shutil
-
 import nltk
 import wget
-
 from omegaconf import OmegaConf
+from pathlib import Path
+import logging
+
+mtypes = {"cpu": "int8", "cuda": "float16"}
 
 punct_model_langs = [
     "en",
@@ -247,6 +249,35 @@ langs_to_iso = {
     "yue": "yue",
     "zh": "chi",
 }
+
+
+def get_vocal_path(audio_path: Path, tmp_dir: Path, stemming: bool, device: str) -> Path:
+    if stemming:
+        # Isolate vocals from the rest of the audio
+
+        return_code = os.system(
+            f'python -m demucs.separate -n htdemucs --two-stems=vocals "{audio_path}" -o "{tmp_dir}" --device "{device}"'
+        )
+
+        if return_code != 0:
+            logging.warning(
+                "Source splitting failed, using original audio file. Use --no-stem argument to disable it."
+            )
+            vocal_target = audio_path
+        else:
+            vocal_target = tmp_dir / "htdemucs" / audio_path.stem / "vocals.wav"
+    else:
+        vocal_target = audio_path
+
+    return vocal_target
+
+
+def write_out(txt_path: Path, srt_path: Path, ssm):
+    with open(txt_path, "w", encoding="utf-8-sig") as f:
+        get_speaker_aware_transcript(ssm, f)
+
+    with open(srt_path, "w", encoding="utf-8-sig") as srt:
+        write_srt(ssm, srt)
 
 
 def create_config(output_dir):

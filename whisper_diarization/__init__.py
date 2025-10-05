@@ -1,3 +1,4 @@
-from .diarize import diarize_audio
+from .diarize import diarize
+from .diarize_parallel import diarize_parallel
 
-__all__ = ["diarize_audio"]
+__all__ = ["diarize", "diarize_parallel"]
