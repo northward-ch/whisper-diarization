@@ -18,7 +18,6 @@ from ctc_forced_aligner import (
 )
 
 def diarize(vocal_target: Path, txt_path: Path, srt_path: Path, tmp_dir: Path, suppress_numerals: bool, model_name: str, batch_size: int, language: str, device: str):    
-    # Transcribe the audio file
     whisper_model = faster_whisper.WhisperModel(model_name, device=device, compute_type=helpers.mtypes[device])
     whisper_pipeline = faster_whisper.BatchedInferencePipeline(whisper_model)
     audio_waveform = faster_whisper.decode_audio(vocal_target)

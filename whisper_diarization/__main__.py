@@ -19,8 +19,6 @@ if __name__ == "__main__":
     parser.add_argument("--device", dest="device", default="cuda" if torch.cuda.is_available() else "cpu", help="if you have a GPU use 'cuda', otherwise 'cpu'")
     args = parser.parse_args()
 
-    subparsers = parser.add_subparsers(dest="parallel", help="Available subcommands")
-
     language = helpers.process_language_arg(args.language, args.model_name)
     tmp_dir = Path("_tmp") / f"temp_outputs_{os.getpid()}"
     tmp_dir.mkdir(parents=True, exist_ok=True)
